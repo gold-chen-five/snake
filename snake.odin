@@ -5,7 +5,7 @@ import rl "vendor:raylib"
 
 Screen_Width :: 800
 Screen_Height :: 600 
-Entity_Len :: 15 
+Entity_Len :: 20 
 
 Direction :: enum u8 {
   Up, 
@@ -76,8 +76,8 @@ main :: proc() {
     speed=80,
     color=rl.RED,
     direction=.Right,
-    x=100,
-    y=100,
+    x=20,
+    y=20,
     width=Entity_Len,
     height=Entity_Len
   }
