@@ -1,6 +1,7 @@
 package snake
 
 import "core:fmt"
+import "core:math/rand"
 import rl "vendor:raylib"
 
 Screen_Width :: 800
@@ -14,55 +15,35 @@ Direction :: enum u8 {
   Right
 }
 
-Snake :: struct {
+Snake_Block :: struct {
   using rec: rl.Rectangle,
+  direction: Direction,
+}
+
+Snake :: struct {
   speed: f32,
   color: rl.Color,
-  direction: Direction,
+  body: [dynamic]Snake_Block 
 } 
 
-draw_snake :: proc(snake: Snake) {
-  rl.DrawRectangleRec(
-    rec=snake.rec,
-    color=snake.color
-  )
-}
-
-move_snake ::proc(snake: ^Snake) {
-  dt := rl.GetFrameTime()
-  switch snake.direction {
-  case .Up: snake.y -= (snake.speed * dt)
-  case .Down: snake.y += (snake.speed * dt)
-  case .Right: snake.x += (snake.speed * dt)
-  case .Left: snake.x -= (snake.speed * dt)
-  }  
-}
-
-keyboard_detect :: proc(snake: ^Snake) {
-  switch {
-  case rl.IsKeyDown(.UP): snake.direction = .Up
-  case rl.IsKeyDown(.DOWN): snake.direction = .Down
-  case rl.IsKeyDown(.RIGHT): snake.direction = .Right
-  case rl.IsKeyDown(.LEFT): snake.direction = .Left
+snake_draw :: proc(snake: Snake) {
+  for rec in snake.body {
+    rl.DrawRectangleRec(
+      rec=rec,
+      color=snake.color
+    )
   }
 }
 
-Apple :: struct {
-  using rec: rl.Rectangle,
-  color: rl.Color
-}
-
-Target :: union {
-  Apple
-}
-
-draw_target :: proc(target: Target){
-  switch t in target {
-  case Apple:
-    rl.DrawRectangleRec(
-      rec=t.rec,
-      color=t.color
-    )
+snake_move ::proc(snake: ^Snake) {
+  dt := rl.GetFrameTime()
+  for &sb in snake.body {
+    switch sb.direction {
+    case .Up: sb.y -= (snake.speed * dt)
+    case .Down: sb.y += (snake.speed * dt)
+    case .Right: sb.x += (snake.speed * dt)
+    case .Left: sb.x -= (snake.speed * dt)
+    }
   }
 }
 
@@ -75,33 +56,46 @@ main :: proc() {
   snake := Snake {
     speed=80,
     color=rl.RED,
-    direction=.Right,
-    x=20,
-    y=20,
-    width=Entity_Len,
-    height=Entity_Len
+    body=make([dynamic]Snake_Block)
   }
+  defer delete(snake.body)
+  
+  append(&snake.body, Snake_Block{
+    direction=.Right,
+    rec=rl.Rectangle{
+        x=20,
+        y=20,
+        width=Entity_Len,
+        height=Entity_Len
+    }
+  })
+
+  kds := make(Keyboard_Detects)
+
+  apple := Apple{
+    x=160,
+    y=100,
+    width=Entity_Len,
+    height=Entity_Len,
+    color=rl.DARKPURPLE
+  } 
 
   for !rl.WindowShouldClose() {
     rl.BeginDrawing() 
     rl.ClearBackground(rl.GREEN)
 
+    entity_draw_target(apple)
+
     // starting point
-    draw_snake(snake)
-    move_snake(&snake)
+    snake_draw(snake)
+    snake_move(&snake)
 
     // keyboard > snake movement 
-    keyboard_detect(&snake) 
+    keyboard_detect(&kds, snake.body[0]) 
+    keyboard_check_detects(&snake, kds) 
 
     // apple and score
-    apple := Apple{
-      x=160,
-      y=100,
-      width=Entity_Len,
-      height=Entity_Len,
-      color=rl.DARKPURPLE
-    } 
-    draw_target(apple)
+    entity_touch_target(&snake, apple)
 
     // end game > bite the tail or hit on the wall
     rl.EndDrawing()
