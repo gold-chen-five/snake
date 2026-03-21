@@ -1,12 +1,14 @@
 package snake
 
 import "core:fmt"
-import "core:math/rand"
 import rl "vendor:raylib"
 
 Screen_Width :: 800
 Screen_Height :: 600 
-Entity_Len :: 20 
+Playground_Width :: 800
+Playground_Height :: 600
+
+MOVE_INTERVAL :: 0.1  
 
 Direction :: enum u8 {
   Up, 
@@ -15,15 +17,11 @@ Direction :: enum u8 {
   Right
 }
 
-Snake_Block :: struct {
-  using rec: rl.Rectangle,
-  direction: Direction,
-}
-
 Snake :: struct {
   speed: f32,
   color: rl.Color,
-  body: [dynamic]Snake_Block 
+  direction: Direction,
+  body: [dynamic]rl.Rectangle 
 } 
 
 snake_draw :: proc(snake: Snake) {
@@ -36,14 +34,14 @@ snake_draw :: proc(snake: Snake) {
 }
 
 snake_move ::proc(snake: ^Snake) {
-  dt := rl.GetFrameTime()
-  for &sb in snake.body {
-    switch sb.direction {
-    case .Up: sb.y -= (snake.speed * dt)
-    case .Down: sb.y += (snake.speed * dt)
-    case .Right: sb.x += (snake.speed * dt)
-    case .Left: sb.x -= (snake.speed * dt)
-    }
+  for i:=len(snake.body)-1; i>0; i-=1 {
+    snake.body[i] = snake.body[i-1]  
+  }
+  switch snake.direction {
+  case .Up: snake.body[0].y -= Entity_Len 
+  case .Down: snake.body[0].y += Entity_Len
+  case .Right: snake.body[0].x += Entity_Len
+  case .Left: snake.body[0].x -= Entity_Len
   }
 }
 
@@ -52,52 +50,46 @@ main :: proc() {
   defer rl.CloseWindow()
 
   // setup
-  rl.SetTargetFPS(60)
+  rl.SetTargetFPS(10)
   snake := Snake {
     speed=80,
     color=rl.RED,
-    body=make([dynamic]Snake_Block)
+    direction=.Right,
+    body=make([dynamic]rl.Rectangle)
   }
   defer delete(snake.body)
-  
-  append(&snake.body, Snake_Block{
-    direction=.Right,
-    rec=rl.Rectangle{
-        x=20,
-        y=20,
-        width=Entity_Len,
-        height=Entity_Len
-    }
+
+  append(&snake.body, rl.Rectangle{
+      x=20,
+      y=20,
+      width=Entity_Len,
+      height=Entity_Len
   })
 
-  kds := make(Keyboard_Detects)
+  apple := entity_create_apple() 
 
-  apple := Apple{
-    x=160,
-    y=100,
-    width=Entity_Len,
-    height=Entity_Len,
-    color=rl.DARKPURPLE
-  } 
-
+  move_timer: f32
   for !rl.WindowShouldClose() {
-    rl.BeginDrawing() 
-    rl.ClearBackground(rl.GREEN)
+    // keyboard
+    switch {
+    case rl.IsKeyPressed(.UP): snake.direction = .Up
+    case rl.IsKeyPressed(.DOWN): snake.direction = .Down
+    case rl.IsKeyPressed(.RIGHT): snake.direction = .Right 
+    case rl.IsKeyPressed(.LEFT): snake.direction = .Left
+    }
 
-    entity_draw_target(apple)
-
-    // starting point
-    snake_draw(snake)
+    // move
     snake_move(&snake)
 
-    // keyboard > snake movement 
-    keyboard_detect(&kds, snake.body[0]) 
-    keyboard_check_detects(&snake, kds) 
-
     // apple and score
-    entity_touch_target(&snake, apple)
-
-    // end game > bite the tail or hit on the wall
+    if entity_touch_target(&snake, apple) {
+      apple = entity_create_apple()
+    }
+    
+    rl.BeginDrawing() 
+    rl.ClearBackground(rl.GREEN)
+    entity_draw_target(apple)
+    snake_draw(snake)
     rl.EndDrawing()
   }
 }
